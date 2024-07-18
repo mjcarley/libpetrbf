@@ -1,7 +1,7 @@
 #ifndef get_vorticity_h
 #define get_vorticity_h
 
-class Get_vorticity
+class Get_vorticity_2d
 {
   int i,j,ic,il,ista,iend;
   double w,dx,dy;
@@ -9,7 +9,7 @@ public:
   void get_vorticity(PARTICLE *particle,CLUSTER *cluster)
   {
     for (ic=cluster->icsta; ic<cluster->icend; ic++) {
-      Get_trunc trunc;
+      Get_trunc_2d trunc;
       trunc.get_trunc(particle,cluster,ic);
       ista = cluster->ista[ic];
       iend = cluster->iend[ic];

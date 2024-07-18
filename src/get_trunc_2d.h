@@ -1,7 +1,7 @@
 #ifndef get_trunc_2d_h
 #define get_trunc_2d_h
 
-class Get_trunc
+class Get_trunc_2d
 {
   int i,il,ista,iend,ix,iy,j,jc,jsta,jend,jx,jy,jx_min,jx_max,jy_min,jy_max;
   double xc,yc,xi,yi,wi,xj,yj,gj;

@@ -49,7 +49,7 @@ AC_PROG_CXX
 AC_PROG_CXX_C_O
 
 if test x$GXX = xyes ; then
-  CFLAGS="$CFLAGS -Wall -Werror-implicit-function-declaration -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations"
+  CXXFLAGS="$CXXFLAGS -Wall -Wmissing-declarations -fPIC"
 fi
 
 AC_PROG_AWK
@@ -71,16 +71,16 @@ PKG_CHECK_MODULES([PETSC], [petsc >= 3.17],
 ]
 )
 
-AX_GCC_X86_CPU_SUPPORTS(avx, hasavx=yes) 
-AX_GCC_X86_CPU_SUPPORTS(avx2, hasavx2=yes) 
-AX_GCC_X86_CPU_SUPPORTS(fma, hasfma=yes) 
+#AX_GCC_X86_CPU_SUPPORTS(avx, hasavx=yes) 
+#AX_GCC_X86_CPU_SUPPORTS(avx2, hasavx2=yes) 
+#AX_GCC_X86_CPU_SUPPORTS(fma, hasfma=yes) 
 
-if test x$hasavx = xyes; then
- SIMD_FLAGS="$SIMD_FLAGS -mavx -DWBFMM_USE_AVX"
-fi
-if test x$hasfma = xyes; then
- SIMD_FLAGS="$SIMD_FLAGS -mfma -DWBFMM_USE_AVX"
-fi
+#if test x$hasavx = xyes; then
+# SIMD_FLAGS="$SIMD_FLAGS -mavx -DWBFMM_USE_AVX"
+#fi
+#if test x$hasfma = xyes; then
+# SIMD_FLAGS="$SIMD_FLAGS -mfma -DWBFMM_USE_AVX"
+#fi
 
 AC_CHECK_LIB(m, cos)
 AC_CONFIG_MACRO_DIR([m4])
@@ -91,20 +91,18 @@ AC_F77_LIBRARY_LDFLAGS
 AC_F77_DUMMY_MAIN
 AC_F77_WRAPPERS
 
-CFLAGS="$CFLAGS $OPENMP_CFLAGS $SIMD_FLAGS $PETSC_CFLAGS"
-LIBS="$GLIB_LIBS $LIBS $PETSC_LIBS"
+CXXFLAGS="$CXXFLAGS $OPENMP_CFLAGS $SIMD_FLAGS $PETSC_CFLAGS"
+LIBS="$LIBS $PETSC_LIBS -llapack -lblas"
 
-AC_SUBST(CFLAGS)
+AC_SUBST(CXXFLAGS)
 AC_SUBST(LIBS)
 AC_SUBST(LDFLAGS)
 
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
+tests/Makefile
 ])
-#tools/Makefile
-#doc/Makefile
-#doc/html/Makefile])
 
 AC_OUTPUT
 

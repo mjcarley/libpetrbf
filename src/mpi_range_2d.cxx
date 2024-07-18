@@ -1,7 +1,7 @@
 // #include <mpi.h>
 #include "par_2d.h"
 
-void mpi_range(MPI2 *mpi)
+void mpi_range_2d(MPI2 *mpi)
 {
   int imin,iwork1,iwork2;
   iwork1 = (mpi->nend-mpi->nsta+1)/mpi->nprocs;

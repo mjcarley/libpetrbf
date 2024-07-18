@@ -1,7 +1,7 @@
 #ifndef get_buffer_2d_h
 #define get_buffer_2d_h
 
-class Get_buffer
+class Get_buffer_2d
 {
   int i,ista,iend,ix,iy,il,j,jc,jsta,jend,jx,jy,jx_min,jx_max,jy_min,jy_max;
   double xc,yc,xi,yi,gi,wi,xj,yj,gj;

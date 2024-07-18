@@ -5,9 +5,9 @@
 #include "get_cluster_2d.h"
 #include "get_buffer_2d.h"
 
-extern PetscErrorCode mymatmult2d(Mat,Vec,Vec);
-extern PetscErrorCode mysubmat2d(Mat,PetscInt,const IS*,const IS*,
-				 MatReuse,Mat**);
+extern PetscErrorCode mymatmult_2d(Mat,Vec,Vec);
+extern PetscErrorCode mysubmat_2d(Mat,PetscInt,const IS*,const IS*,
+				  MatReuse,Mat**);
 
 /** RBF solver.
  *
@@ -24,9 +24,9 @@ extern PetscErrorCode mysubmat2d(Mat,PetscInt,const IS*,const IS*,
  * sigma_trunc:  Truncation point for sigma.
  * its:          Returns solver teration data.
  */
-PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
-				 double sigma, int nsigma_box,
-				 int sigma_buffer, int sigma_trunc, int *its)
+PetscErrorCode rbf_interpolation_2d(Vec xi, Vec yi, Vec gi, Vec wi,
+				    double sigma, int nsigma_box,
+				    int sigma_buffer, int sigma_trunc, int *its)
 {
   int i,ic,id,ista,iend,*isort,ievent[10];
   std::ofstream fid0,fid1;
@@ -96,7 +96,7 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   ierr = VecGetArray(xi,&particle.xjl);CHKERRQ(ierr);
   ierr = VecGetArray(yi,&particle.yjl);CHKERRQ(ierr);
 
-  Get_cluster clusters;
+  Get_cluster_2d clusters;
   clusters.get_cluster(&particle,&cluster);
 
   ierr = VecRestoreArray(xi,&particle.xil);CHKERRQ(ierr);
@@ -111,14 +111,17 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   /*
     generate IS
   */
-  ierr = ISCreateStride(PETSC_COMM_WORLD,particle.nilocal,particle.ista,1,&isx);CHKERRQ(ierr);
+  ierr = ISCreateStride(PETSC_COMM_WORLD,particle.nilocal,
+			particle.ista,1,&isx);CHKERRQ(ierr);
   ierr = ISDuplicate(isx,&isy);CHKERRQ(ierr);
   ierr = VecCreate(PETSC_COMM_WORLD,&particle.i);CHKERRQ(ierr);
   ierr = VecSetSizes(particle.i,particle.nilocal,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = VecSetFromOptions(particle.i);CHKERRQ(ierr);
   ierr = VecScatterCreate(particle.ii,isx,particle.i,isy,&ctx);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,particle.ii,particle.i,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,particle.ii,particle.i,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.ii,particle.i,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.ii,particle.i,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
   ierr = ISDestroy(&isx);CHKERRQ(ierr);
   ierr = ISDestroy(&isy);CHKERRQ(ierr);
@@ -140,21 +143,31 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   ierr = VecCreate(PETSC_COMM_WORLD,&particle.xi);CHKERRQ(ierr);
   ierr = VecSetSizes(particle.xi,particle.nilocal,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = VecSetFromOptions(particle.xi);CHKERRQ(ierr);
-  ierr = VecCreateGhost(PETSC_COMM_WORLD,particle.nilocal,PETSC_DECIDE,cluster.nighost,cluster.ighost,
-    &particle.xi);CHKERRQ(ierr);
+  ierr = VecCreateGhost(PETSC_COMM_WORLD,particle.nilocal,
+			PETSC_DECIDE,cluster.nighost,cluster.ighost,
+			&particle.xi);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xi,&particle.yi);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xi,&particle.gi);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xi,&particle.wi);CHKERRQ(ierr);
-  ierr = ISCreateStride(PETSC_COMM_WORLD,particle.nilocal,particle.ista,1,&isy);CHKERRQ(ierr);
+  ierr = ISCreateStride(PETSC_COMM_WORLD,particle.nilocal,
+			particle.ista,1,&isy);CHKERRQ(ierr);
   ierr = VecScatterCreate(xi,isx,particle.xi,isy,&ctx);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,xi,particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,xi,particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,yi,particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,yi,particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,gi,particle.gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,gi,particle.gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,wi,particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,wi,particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,xi,particle.xi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,xi,particle.xi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,yi,particle.yi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,yi,particle.yi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,gi,particle.gi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,gi,particle.gi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,wi,particle.wi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,wi,particle.wi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.xi);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.xi);CHKERRQ(ierr);
@@ -164,14 +177,22 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   ierr = VecAssemblyEnd(particle.gi);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.wi);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.wi);CHKERRQ(ierr);
-  ierr = VecGhostUpdateBegin(particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateEnd(particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateBegin(particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateEnd(particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateBegin(particle.gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateEnd(particle.gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateBegin(particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateEnd(particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.xi,
+			     INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.xi,
+			   INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.yi,
+			     INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.yi,
+			   INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.gi,
+			     INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.gi,
+			   INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.wi,
+			     INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.wi,
+			   INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
 
   ierr = PetscLogEventEnd(ievent[3],0,0,0,0);CHKERRQ(ierr);
   ierr = PetscLogEventBegin(ievent[4],0,0,0,0);CHKERRQ(ierr);
@@ -187,22 +208,24 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   ierr = VecSetSizes(xx,particle.nilocal,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = VecSetFromOptions(xx);CHKERRQ(ierr);
   ierr = MatCreate(PETSC_COMM_WORLD,&M);CHKERRQ(ierr);
-  ierr = MatSetSizes(M,particle.nilocal,particle.nilocal,PETSC_DETERMINE,PETSC_DETERMINE);CHKERRQ(ierr);
+  ierr = MatSetSizes(M,particle.nilocal,particle.nilocal,
+		     PETSC_DETERMINE,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = MatSetType(M,MATSHELL);CHKERRQ(ierr);
   ierr = MatSetFromOptions(M);CHKERRQ(ierr);
-  ierr = MatShellSetOperation(M,MATOP_MULT, (void (*)(void)) mymatmult2d);
+  ierr = MatShellSetOperation(M,MATOP_MULT, (void (*)(void)) mymatmult_2d);
   ierr = MatShellSetContext(M,&both);CHKERRQ(ierr);
   ierr = MatSetUp(M);CHKERRQ(ierr);
   ierr = MatView(M,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   ierr = MatCreate(PETSC_COMM_WORLD,&P);CHKERRQ(ierr);
-  ierr = MatSetSizes(P,particle.nilocal,particle.nilocal,PETSC_DETERMINE,PETSC_DETERMINE);CHKERRQ(ierr);
+  ierr = MatSetSizes(P,particle.nilocal,particle.nilocal,
+		     PETSC_DETERMINE,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = MatSetType(P,MATSHELL);CHKERRQ(ierr);
   ierr = MatSetFromOptions(P);CHKERRQ(ierr);
   // ierr = MatShellSetOperation(P,MATOP_GET_SUBMATRICES,
   // 			      (void (*)(void)) mysubmat2d);
   /*modified by Michael Carley to conform to PetSC > 3.0*/
   ierr = MatShellSetOperation(P,MATOP_CREATE_SUBMATRICES,
-			      (void (*)(void)) mysubmat2d);
+			      (void (*)(void)) mysubmat_2d);
   
   ierr = MatShellSetContext(P,&both);CHKERRQ(ierr);
   ierr = MatSetUp(P);CHKERRQ(ierr);
@@ -221,7 +244,7 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   ierr = PCASMSetOverlap(pc,0);CHKERRQ(ierr);
   for (ic=cluster.icsta; ic<cluster.icend; ic++) {
     id = ic-cluster.icsta;
-    Get_buffer buffer;
+    Get_buffer_2d buffer;
     buffer.get_buffer(&particle,&cluster,ic);
     ista = cluster.ista[ic];
     iend = cluster.iend[ic];
@@ -230,8 +253,10 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
         idx[i] = cluster.idx[i];
       }
     }
-    ierr = ISCreateGeneral(PETSC_COMM_SELF,cluster.npbufferi,idx,PETSC_COPY_VALUES,&is[id]);CHKERRQ(ierr);
-    ierr = ISCreateGeneral(PETSC_COMM_SELF,iend-ista+1,idx,PETSC_COPY_VALUES,&is_local[id]);CHKERRQ(ierr);
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,cluster.npbufferi,idx,
+			   PETSC_COPY_VALUES,&is[id]);CHKERRQ(ierr);
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,iend-ista+1,idx,
+			   PETSC_COPY_VALUES,&is_local[id]);CHKERRQ(ierr);
   }
   ierr = PCASMSetSortIndices(pc,PETSC_FALSE);CHKERRQ(ierr);
   ierr = PCASMSetLocalSubdomains(pc,cluster.nclocal,is,is_local);CHKERRQ(ierr);
@@ -256,23 +281,34 @@ PetscErrorCode rbf_interpolation(Vec xi, Vec yi, Vec gi, Vec wi,
   cluster.icend = cluster.nclocal;
   ierr = VecGetArray(xx,&xxx);CHKERRQ(ierr);
   for(i=particle.ista; i<particle.iend; i++) {
-    ierr = VecSetValues(particle.gi,1,&i,&xxx[i-particle.ista],INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(particle.gi,1,&i,&xxx[i-particle.ista],
+			INSERT_VALUES);CHKERRQ(ierr);
   }
   ierr = VecRestoreArray(xx,&xxx);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.gi);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.gi);CHKERRQ(ierr);
-  ierr = VecGhostUpdateBegin(particle.gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateEnd(particle.gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.gi,
+			     INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.gi,
+			   INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
 
   ierr = VecScatterCreate(particle.xi,isy,xi,isx,&ctx);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,particle.xi,xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,particle.xi,xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,particle.yi,yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,particle.yi,yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,particle.gi,gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,particle.gi,gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ctx,particle.wi,wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ctx,particle.wi,wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.xi,xi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.xi,xi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.yi,yi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.yi,yi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.gi,gi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.gi,gi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.wi,wi,
+			 INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.wi,wi,
+		       INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
 
   for (ic=0; ic<cluster.nclocal; ic++) {

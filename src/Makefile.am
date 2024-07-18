@@ -16,12 +16,6 @@ libpetrbf_la_SOURCES = \
 	rbf_interpolation_2d.cxx \
 	vorticity_evaluation_2d.cxx
 
-
-#libpetrbf.c \
-#	kernel.c \
-#	gtrbf.h \
-#	gtrbf.c
-
 include_HEADERS = \
 	libpetrbf.h
 

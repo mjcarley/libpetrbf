@@ -3,12 +3,14 @@
 
 #include "par_2d.h"
 
-extern void mpi_range(MPI2*);
+extern void mpi_range_2d(MPI2*);
 
-class Get_cluster
+class Get_cluster_2d
 {
-  int n,ic,id,io,ip,ix,iy,ista,iend,ix_cluster,iy_cluster,j,jc,jd,jsta,jend,jx,jy,jx_min,jx_max,jy_min,jy_max;
-  int icall,ncall,nilocal,njlocal,*iplocal,*jplocal,*ipglobal,*jpglobal,*ipoffset,*jpoffset,*idghost;
+  int n,ic,id,io,ip,ix,iy,ista,iend,ix_cluster,iy_cluster,
+    j,jc,jd,jsta,jend,jx,jy,jx_min,jx_max,jy_min,jy_max;
+  int icall,ncall,nilocal,njlocal,*iplocal,*jplocal,*ipglobal,*jpglobal,
+    *ipoffset,*jpoffset,*idghost;
   PetscReal sort;
   MPI2 mpi;
 public:
@@ -109,7 +111,7 @@ public:
 
     mpi.nsta = 0;
     mpi.nend = cluster->n-1;
-    mpi_range(&mpi);
+    mpi_range_2d(&mpi);
     cluster->icsta = mpi.ista;
     cluster->icend = mpi.iend;
 

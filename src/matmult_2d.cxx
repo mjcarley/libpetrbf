@@ -3,7 +3,7 @@
 #include "get_buffer_2d.h"
 #include "get_trunc_2d.h"
 
-PetscErrorCode mymatmult2d(Mat A,Vec x,Vec y)
+PetscErrorCode mymatmult_2d(Mat A,Vec x,Vec y)
 {
   int i,j,ic,il,ista,iend;
   double dx,dy,w;
@@ -18,15 +18,18 @@ PetscErrorCode mymatmult2d(Mat A,Vec x,Vec y)
   ierr = VecGetArray(x,&ax);CHKERRQ(ierr);
   ierr = VecGetArray(y,&ay);CHKERRQ(ierr);
   for(i=particle->ista; i<particle->iend; i++) {
-    ierr = VecSetValues(particle->gi,1,&i,&ax[i-particle->ista],INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(particle->gi,1,&i,&ax[i-particle->ista],
+			INSERT_VALUES);CHKERRQ(ierr);
   }
   ierr = VecAssemblyBegin(particle->gi);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle->gi);CHKERRQ(ierr);
-  ierr = VecGhostUpdateBegin(particle->gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecGhostUpdateEnd(particle->gi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle->gi,
+			     INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle->gi,
+			   INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGetArray(particle->gi,&particle->gil);CHKERRQ(ierr);
   for (ic=cluster->icsta; ic<cluster->icend; ic++) {
-    Get_trunc trunc;
+    Get_trunc_2d trunc;
     trunc.get_trunc(particle,cluster,ic);
     ista = cluster->ista[ic];
     iend = cluster->iend[ic];
@@ -36,7 +39,8 @@ PetscErrorCode mymatmult2d(Mat A,Vec x,Vec y)
       for (j=0; j<cluster->nptruncj; j++) {
         dx = particle->xil[i]-cluster->xjt[j];
         dy = particle->yil[i]-cluster->yjt[j];
-        w += cluster->gjt[j]*exp(-(dx*dx+dy*dy)/(2*particle->sigma*particle->sigma))/
+        w += cluster->gjt[j]
+	  *exp(-(dx*dx+dy*dy)/(2*particle->sigma*particle->sigma))/
           (2*M_PI*particle->sigma*particle->sigma);
       }
       ay[il-particle->ista] = w;
@@ -50,7 +54,7 @@ PetscErrorCode mymatmult2d(Mat A,Vec x,Vec y)
   PetscFunctionReturn(0);
 }
 
-PetscErrorCode mysubmat2d(Mat mat,PetscInt n,const IS irow[],const IS icol[],
+PetscErrorCode mysubmat_2d(Mat mat,PetscInt n,const IS irow[],const IS icol[],
 			  MatReuse scall,Mat *submat[])
 {
   int i,ic,id,j,ista,iend;
@@ -64,6 +68,7 @@ PetscErrorCode mysubmat2d(Mat mat,PetscInt n,const IS irow[],const IS icol[],
   CLUSTER *cluster = both->c;
 
   idx = new PetscInt [cluster->maxbuffer];
+  fprintf(stderr, "maxbuffer = %d\n", cluster->maxbuffer) ;
   A = new PetscScalar [cluster->maxbuffer*cluster->maxbuffer];
 
   PetscFunctionBegin;
@@ -71,13 +76,12 @@ PetscErrorCode mysubmat2d(Mat mat,PetscInt n,const IS irow[],const IS icol[],
   ierr = VecGetArray(particle->gi,&particle->gil);CHKERRQ(ierr);
   for(ic = cluster->icsta; ic < cluster->icend; ic++) {
     id = ic-cluster->icsta;
-    Get_buffer buffer;
+    Get_buffer_2d buffer;
     buffer.get_buffer(particle,cluster,ic);
     ierr = MatCreate(PETSC_COMM_SELF,&(*submat)[id]);CHKERRQ(ierr);
     ierr = MatSetOptionsPrefix((*submat)[id], "sub_");CHKERRQ(ierr);
     ierr = MatSetSizes((*submat)[id],cluster->npbufferi,cluster->npbufferi,
-		       PETSC_DETERMINE,PETSC_DETERMINE);CHKERRQ(ierr
-);
+		       PETSC_DETERMINE,PETSC_DETERMINE);CHKERRQ(ierr);
     ierr = MatSetFromOptions((*submat)[id]);CHKERRQ(ierr);
     ierr = MatSeqAIJSetPreallocation((*submat)[id],cluster->npbufferi,
 				     PETSC_NULLPTR);CHKERRQ(ierr);
@@ -88,14 +92,16 @@ PetscErrorCode mysubmat2d(Mat mat,PetscInt n,const IS irow[],const IS icol[],
         for (j=0; j<cluster->npbufferi; j++) {
           dx = cluster->xib[i]-cluster->xib[j];
           dy = cluster->yib[i]-cluster->yib[j];
-          A[i*cluster->npbufferi+j] = exp(-(dx*dx+dy*dy)/(2*particle->sigma*particle->sigma))/
+          A[i*cluster->npbufferi+j] =
+	    exp(-(dx*dx+dy*dy)/(2*particle->sigma*particle->sigma))/
             (2*M_PI*particle->sigma*particle->sigma);
         }
         idx[i] = i;
       }
     }
     ierr = MatSetUp((*submat)[id]);CHKERRQ(ierr);
-    ierr = MatSetValues((*submat)[id],cluster->npbufferi,idx,cluster->npbufferi,idx,A,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = MatSetValues((*submat)[id],cluster->npbufferi,idx,
+			cluster->npbufferi,idx,A,INSERT_VALUES);CHKERRQ(ierr);
     ierr = MatAssemblyBegin((*submat)[id],MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd((*submat)[id],MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   }

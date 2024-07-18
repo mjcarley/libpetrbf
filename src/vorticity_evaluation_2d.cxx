@@ -23,8 +23,10 @@
  * sigma_buffer: Size of the buffer, measured in sigma.
  * sigma_trunc:  Truncation distance for the gaussians, meassured in sigma.
  */
-PetscErrorCode vorticity_evaluation(Vec xi, Vec yi, Vec wi, Vec xj, Vec yj, Vec gj,
-  double sigma, int nsigma_box, int sigma_buffer, int sigma_trunc)
+PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
+					   Vec xj, Vec yj, Vec gj,
+					   double sigma, int nsigma_box,
+					   int sigma_buffer, int sigma_trunc)
 {
   int i,*isort,*jsort,ievent[10];
   PetscReal ximin,ximax,yimin,yimax,xjmin,xjmax,yjmin,yjmax;
@@ -97,7 +99,7 @@ PetscErrorCode vorticity_evaluation(Vec xi, Vec yi, Vec wi, Vec xj, Vec yj, Vec 
   ierr = VecGetArray(xj,&particle.xjl);CHKERRQ(ierr);
   ierr = VecGetArray(yj,&particle.yjl);CHKERRQ(ierr);
 
-  Get_cluster clusters;
+  Get_cluster_2d clusters;
   clusters.get_cluster(&particle,&cluster);
 
   ierr = VecRestoreArray(xi,&particle.xil);CHKERRQ(ierr);
@@ -227,7 +229,7 @@ PetscErrorCode vorticity_evaluation(Vec xi, Vec yi, Vec wi, Vec xj, Vec yj, Vec 
   /*
     estimate vorticity field on particle from vortex strength
   */
-  Get_vorticity vorticity;
+  Get_vorticity_2d vorticity;
   vorticity.get_vorticity(&particle,&cluster);
 
   ierr = VecRestoreArray(particle.xi,&particle.xil);CHKERRQ(ierr);
