@@ -1,0 +1,7 @@
+The original PetRBF code was written by Rio Yokota, L A Barba, and
+Matthew G Knepley and is available from
+
+https://github.com/barbagroup/petrbf
+
+The original PetRBF code was forked and converted to this autotools
+library by Michael Carley.
