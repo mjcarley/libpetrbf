@@ -6,6 +6,10 @@ library for integration in other codes. The original code is licensed
 by the Barba group under the MIT License. Further developments are
 covered by the GPL.
 
+The prerequisite for installing the library is PETSc, which is
+available from https://www.petsc.org/ The installation process
+requires that the PETSc be visible as a package using `pkg-config`. 
+
 # Original PetRBF description
 
 Many applications in computational science need to approximate a

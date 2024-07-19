@@ -22,25 +22,20 @@
 
 // Code modified by Michael Carley for incorporation into a library, 2024
 
-#ifndef __LIBPETRBF_H_INCLUDED__
-#define __LIBPETRBF_H_INCLUDED__
+// #include <mpi.h>
+#include "par_3d.h"
 
-PetscErrorCode rbf_interpolation_2d(Vec xi, Vec yi, Vec gi, Vec wi,
-				    double sigma, int nsigma_box,
-				    int sigma_buffer, int sigma_trunc,
-				    int *its) ;
-PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
-					   Vec xj, Vec yj, Vec gj,
-					   double sigma, int nsigma_box,
-					   int sigma_buffer, int sigma_trunc) ;
-
-PetscErrorCode rbf_interpolation_3d(Vec xi, Vec yi, Vec zi, Vec gi, Vec wi,
-				    double sigma, int nsigma_box,
-				    int sigma_buffer, int sigma_trunc,
-				    int *its) ;
-PetscErrorCode rbf_vorticity_evaluation_3d(Vec xi, Vec yi, Vec zi, Vec wi,
-					   Vec xj, Vec yj, Vec zj, Vec gj,
-					   double sigma, int nsigma_box,
-					   int sigma_buffer, int sigma_trunc) ;
-
-#endif /*__LIBPETRBF_H_INCLUDED__*/
+void mpi_range_3d(MPI2 *mpi)
+{
+  int imin,iwork1,iwork2;
+  iwork1 = (mpi->nend-mpi->nsta+1)/mpi->nprocs;
+  iwork2 = (mpi->nend-mpi->nsta+1)%mpi->nprocs;
+  if (mpi->myrank <= iwork2) {
+    imin = mpi->myrank;
+  } else {
+    imin = iwork2;
+  }
+  mpi->ista = mpi->myrank*iwork1+mpi->nsta+imin;
+  mpi->iend = mpi->ista+iwork1;
+  if (mpi->myrank < iwork2) mpi->iend = mpi->iend+1;
+}

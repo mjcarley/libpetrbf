@@ -26,16 +26,16 @@
 #include <iostream>
 #include <petscksp.h>
 
-#include "par_2d.h"
-#include "get_cluster_2d.h"
-#include "get_buffer_2d.h"
-#include "get_trunc_2d.h"
-#include "get_vorticity_2d.h"
+#include "par_3d.h"
+#include "get_cluster_3d.h"
+#include "get_buffer_3d.h"
+#include "get_trunc_3d.h"
+#include "get_vorticity_3d.h"
 
 /** RBF gaussian interpolation.
  *
- * Interpolation from source points (xi,yi,wi) for the values (gj) at
- * the evaluation points (xj,yj).
+ * Interpolation from source points (xi,yi,wi) for the values (gj) at the evaluation
+ * points (xj,yj).
  *
  * Parameters
  * xi, yi:       Coordinates of the evaluation points.
@@ -47,13 +47,11 @@
  * sigma_buffer: Size of the buffer, measured in sigma.
  * sigma_trunc:  Truncation distance for the gaussians, meassured in sigma.
  */
-PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
-					   Vec xj, Vec yj, Vec gj,
-					   double sigma, int nsigma_box,
-					   int sigma_buffer, int sigma_trunc)
+PetscErrorCode rbf_vorticity_evaluation_3d(Vec xi, Vec yi, Vec zi, Vec wi, Vec xj, Vec yj, Vec zj, Vec gj,
+  double sigma, int nsigma_box, int sigma_buffer, int sigma_trunc)
 {
   int i,*isort,*jsort,ievent[10];
-  PetscReal ximin,ximax,yimin,yimax,xjmin,xjmax,yjmin,yjmax;
+  double ximin,ximax,yimin,yimax,zimin,zimax,xjmin,xjmax,yjmin,yjmax,zjmin,zjmax;
   std::ofstream fid0,fid1;
   PARTICLE particle;
   CLUSTER cluster;
@@ -86,14 +84,20 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecMax(xi,PETSC_NULLPTR,&ximax);CHKERRQ(ierr);
   ierr = VecMin(yi,PETSC_NULLPTR,&yimin);CHKERRQ(ierr);
   ierr = VecMax(yi,PETSC_NULLPTR,&yimax);CHKERRQ(ierr);
+  ierr = VecMin(zi,PETSC_NULLPTR,&zimin);CHKERRQ(ierr);
+  ierr = VecMax(zi,PETSC_NULLPTR,&zimax);CHKERRQ(ierr);
   ierr = VecMin(xj,PETSC_NULLPTR,&xjmin);CHKERRQ(ierr);
   ierr = VecMax(xj,PETSC_NULLPTR,&xjmax);CHKERRQ(ierr);
   ierr = VecMin(yj,PETSC_NULLPTR,&yjmin);CHKERRQ(ierr);
   ierr = VecMax(yj,PETSC_NULLPTR,&yjmax);CHKERRQ(ierr);
+  ierr = VecMin(zj,PETSC_NULLPTR,&zjmin);CHKERRQ(ierr);
+  ierr = VecMax(zj,PETSC_NULLPTR,&zjmax);CHKERRQ(ierr);
   particle.xmin = std::min(ximin,xjmin);
   particle.xmax = std::max(ximax,xjmax);
   particle.ymin = std::min(yimin,yjmin);
   particle.ymax = std::max(yimax,yjmax);
+  particle.zmin = std::min(zimin,zjmin);
+  particle.zmax = std::max(zimax,zjmax);
 
   /*
     cluster parameters
@@ -120,16 +124,20 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   */
   ierr = VecGetArray(xi,&particle.xil);CHKERRQ(ierr);
   ierr = VecGetArray(yi,&particle.yil);CHKERRQ(ierr);
+  ierr = VecGetArray(zi,&particle.zil);CHKERRQ(ierr);
   ierr = VecGetArray(xj,&particle.xjl);CHKERRQ(ierr);
   ierr = VecGetArray(yj,&particle.yjl);CHKERRQ(ierr);
+  ierr = VecGetArray(zj,&particle.zjl);CHKERRQ(ierr);
 
-  Get_cluster_2d clusters;
+  Get_cluster_3d clusters;
   clusters.get_cluster(&particle,&cluster);
 
   ierr = VecRestoreArray(xi,&particle.xil);CHKERRQ(ierr);
   ierr = VecRestoreArray(yi,&particle.yil);CHKERRQ(ierr);
+  ierr = VecRestoreArray(zi,&particle.zil);CHKERRQ(ierr);
   ierr = VecRestoreArray(xj,&particle.xjl);CHKERRQ(ierr);
   ierr = VecRestoreArray(yj,&particle.yjl);CHKERRQ(ierr);
+  ierr = VecRestoreArray(zj,&particle.zjl);CHKERRQ(ierr);
   isort = new int [particle.nilocal];
   jsort = new int [particle.njlocal];
 
@@ -154,7 +162,7 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecAssemblyEnd(particle.i);CHKERRQ(ierr);
   ierr = VecGetArray(particle.i,&particle.il);CHKERRQ(ierr);
   for(i=0; i<particle.nilocal; i++) {
-    isort[i] = (int) particle.il[i];
+    isort[i] = particle.il[i];
   }
   ierr = ISCreateGeneral(PETSC_COMM_WORLD,particle.nilocal,isort,PETSC_COPY_VALUES,&isx);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.i,&particle.il);CHKERRQ(ierr);
@@ -173,9 +181,8 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecAssemblyBegin(particle.j);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.j);CHKERRQ(ierr);
   ierr = VecGetArray(particle.j,&particle.jl);CHKERRQ(ierr);
-
   for(i=0; i<particle.njlocal; i++) {
-    jsort[i] = (int) particle.jl[i];
+    jsort[i] = particle.jl[i];
   }
   ierr = ISCreateGeneral(PETSC_COMM_WORLD,particle.njlocal,jsort,PETSC_COPY_VALUES,&jsx);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.j,&particle.jl);CHKERRQ(ierr);
@@ -192,11 +199,15 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecSetSizes(particle.xj,particle.njlocal,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = VecSetFromOptions(particle.xi);CHKERRQ(ierr);
   ierr = VecSetFromOptions(particle.xj);CHKERRQ(ierr);
-  ierr = VecCreateGhost(PETSC_COMM_WORLD,particle.nilocal,PETSC_DECIDE,cluster.nighost,cluster.ighost,&particle.xi);CHKERRQ(ierr);
-  ierr = VecCreateGhost(PETSC_COMM_WORLD,particle.njlocal,PETSC_DECIDE,cluster.njghost,cluster.jghost,&particle.xj);CHKERRQ(ierr);
+  ierr = VecCreateGhost(PETSC_COMM_WORLD,particle.nilocal,PETSC_DECIDE,cluster.nighost,cluster.ighost,
+    &particle.xi);CHKERRQ(ierr);
+  ierr = VecCreateGhost(PETSC_COMM_WORLD,particle.njlocal,PETSC_DECIDE,cluster.njghost,cluster.jghost,
+    &particle.xj);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xi,&particle.yi);CHKERRQ(ierr);
+  ierr = VecDuplicate(particle.xi,&particle.zi);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xi,&particle.wi);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xj,&particle.yj);CHKERRQ(ierr);
+  ierr = VecDuplicate(particle.xj,&particle.zj);CHKERRQ(ierr);
   ierr = VecDuplicate(particle.xj,&particle.gj);CHKERRQ(ierr);
   ierr = ISCreateStride(PETSC_COMM_WORLD,particle.nilocal,particle.ista,1,&isy);CHKERRQ(ierr);
   ierr = ISCreateStride(PETSC_COMM_WORLD,particle.njlocal,particle.jsta,1,&jsy);CHKERRQ(ierr);
@@ -205,6 +216,8 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecScatterEnd(ctx,xi,particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,yi,particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,yi,particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,zi,particle.zi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,zi,particle.zi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,wi,particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,wi,particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
@@ -213,6 +226,8 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecScatterEnd(ctx,xj,particle.xj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,yj,particle.yj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,yj,particle.yj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,zj,particle.zj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,zj,particle.zj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,gj,particle.gj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,gj,particle.gj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
@@ -220,31 +235,41 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecAssemblyEnd(particle.xi);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.yi);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.yi);CHKERRQ(ierr);
+  ierr = VecAssemblyBegin(particle.zi);CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(particle.zi);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.wi);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.wi);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.xj);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.xj);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.yj);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.yj);CHKERRQ(ierr);
+  ierr = VecAssemblyBegin(particle.zj);CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(particle.zj);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(particle.gj);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(particle.gj);CHKERRQ(ierr);
   ierr = VecGhostUpdateBegin(particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateEnd(particle.xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateBegin(particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateEnd(particle.yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.zi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.zi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateBegin(particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateEnd(particle.wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateBegin(particle.xj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateEnd(particle.xj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateBegin(particle.yj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateEnd(particle.yj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateBegin(particle.zj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecGhostUpdateEnd(particle.zj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateBegin(particle.gj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGhostUpdateEnd(particle.gj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecGetArray(particle.xi,&particle.xil);CHKERRQ(ierr);
   ierr = VecGetArray(particle.yi,&particle.yil);CHKERRQ(ierr);
+  ierr = VecGetArray(particle.zi,&particle.zil);CHKERRQ(ierr);
   ierr = VecGetArray(particle.wi,&particle.wil);CHKERRQ(ierr);
   ierr = VecGetArray(particle.xj,&particle.xjl);CHKERRQ(ierr);
   ierr = VecGetArray(particle.yj,&particle.yjl);CHKERRQ(ierr);
+  ierr = VecGetArray(particle.zj,&particle.zjl);CHKERRQ(ierr);
   ierr = VecGetArray(particle.gj,&particle.gjl);CHKERRQ(ierr);
 
   ierr = PetscLogEventEnd(ievent[3],0,0,0,0);CHKERRQ(ierr);
@@ -253,14 +278,16 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   /*
     estimate vorticity field on particle from vortex strength
   */
-  Get_vorticity_2d vorticity;
+  Get_vorticity_3d vorticity;
   vorticity.get_vorticity(&particle,&cluster);
 
   ierr = VecRestoreArray(particle.xi,&particle.xil);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.yi,&particle.yil);CHKERRQ(ierr);
+  ierr = VecRestoreArray(particle.zi,&particle.zil);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.wi,&particle.wil);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.xj,&particle.xjl);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.yj,&particle.yjl);CHKERRQ(ierr);
+  ierr = VecRestoreArray(particle.zj,&particle.zjl);CHKERRQ(ierr);
   ierr = VecRestoreArray(particle.gj,&particle.gjl);CHKERRQ(ierr);
 
   ierr = PetscLogEventEnd(ievent[4],0,0,0,0);CHKERRQ(ierr);
@@ -271,6 +298,8 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecScatterEnd(ctx,particle.xi,xi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,particle.yi,yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,particle.yi,yi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.zi,zi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.zi,zi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,particle.wi,wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,particle.wi,wi,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
@@ -279,6 +308,8 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecScatterEnd(ctx,particle.xj,xj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,particle.yj,yj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,particle.yj,yj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ctx,particle.zj,zj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ctx,particle.zj,zj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterBegin(ctx,particle.gj,gj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ctx,particle.gj,gj,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
@@ -291,8 +322,10 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   delete[] cluster.jend;
   delete[] cluster.ix;
   delete[] cluster.iy;
+  delete[] cluster.iz;
   delete[] cluster.xc;
   delete[] cluster.yc;
+  delete[] cluster.zc;
   delete[] cluster.ighost;
   delete[] cluster.jghost;
   delete[] cluster.ilocal;
@@ -300,10 +333,12 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   delete[] cluster.idx;
   delete[] cluster.xib;
   delete[] cluster.yib;
+  delete[] cluster.zib;
   delete[] cluster.gib;
   delete[] cluster.wib;
   delete[] cluster.xjt;
   delete[] cluster.yjt;
+  delete[] cluster.zjt;
   delete[] cluster.gjt;
 
   ierr = ISDestroy(&isx);CHKERRQ(ierr);
@@ -316,9 +351,11 @@ PetscErrorCode rbf_vorticity_evaluation_2d(Vec xi, Vec yi, Vec wi,
   ierr = VecDestroy(&particle.jj);CHKERRQ(ierr);
   ierr = VecDestroy(&particle.xi);CHKERRQ(ierr);
   ierr = VecDestroy(&particle.yi);CHKERRQ(ierr);
+  ierr = VecDestroy(&particle.zi);CHKERRQ(ierr);
   ierr = VecDestroy(&particle.wi);CHKERRQ(ierr);
   ierr = VecDestroy(&particle.xj);CHKERRQ(ierr);
   ierr = VecDestroy(&particle.yj);CHKERRQ(ierr);
+  ierr = VecDestroy(&particle.zj);CHKERRQ(ierr);
   ierr = VecDestroy(&particle.gj);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(ievent[5],0,0,0,0);CHKERRQ(ierr);
   PetscFunctionReturn(0);

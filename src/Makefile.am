@@ -14,7 +14,16 @@ libpetrbf_la_SOURCES = \
 	par_2d.h \
 	matmult_2d.cxx \
 	rbf_interpolation_2d.cxx \
-	vorticity_evaluation_2d.cxx
+	vorticity_evaluation_2d.cxx \
+	mpi_range_3d.cxx \
+	get_buffer_3d.h \
+	get_trunc_3d.h \
+	get_cluster_3d.h \
+	get_vorticity_3d.h \
+	par_3d.h \
+	matmult_3d.cxx \
+	rbf_interpolation_3d.cxx \
+	vorticity_evaluation_3d.cxx
 
 include_HEADERS = \
 	libpetrbf.h

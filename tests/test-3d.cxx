@@ -1,27 +1,4 @@
-// The MIT License (MIT)
-
-// Copyright (c) 2015 Barba group
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be
-// included in all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-// Code modified by Michael Carley for incorporation into a library, 2024
-
+// #include <mpi.h>
 #include <cmath>
 #include <ctime>
 #include <fstream>
@@ -31,34 +8,55 @@
 #include <petscis.h>
 #include <petsclog.h>
 
+// #include "par.h"
+// #include "get_cluster.h"
+// #include "get_buffer.h"
+// #include "get_trunc.h"
+// #include "get_vorticity.h"
+
 #include <par_2d.h>
 
 #include <libpetrbf.h>
 
+// extern PetscErrorCode vorticity_evaluation(Vec,Vec,Vec,Vec,Vec,Vec,Vec,Vec,double,int,int,int);
+// extern PetscErrorCode rbf_interpolation(Vec,Vec,Vec,Vec,Vec,double,int,int,int,int*);
+
 int main(int argc,char **argv)
 {
-  int i,its,nsigma_box,sigma_buffer,sigma_trunc,ni,nj,ista,iend,nlocal;
-  double sigma,overlap,h,*xd,*yd,*gd,*ed,*wd,t,err,errd;
+  int i,its,nsigma_box,sigma_buffer,sigma_trunc,nx,ny,nz,ni,nj,ista,iend,nlocal;
+  double sigma,overlap,h,xmin,xmax,ymin,ymax,zmin,zmax,xd,yd,zd,gd,ed,wd,t,err,errd;
   clock_t tic,toc;
   tic = std::clock();
 
-  std::ifstream fid;
   std::ofstream fid0,fid1;
+  PARAMETER parameter;
   MPI2 mpi;
 
   PetscErrorCode ierr;
-  Vec x,y,g,e,w;
+  Vec x,y,z,g,e,w;
 
-  PetscInitialize(&argc,&argv,PETSC_NULLPTR,PETSC_NULLPTR);
+  PetscInitialize(&argc,&argv,PETSC_NULL,PETSC_NULL);
   MPI_Comm_size(PETSC_COMM_WORLD,&mpi.nprocs);
   MPI_Comm_rank(PETSC_COMM_WORLD,&mpi.myrank);
 
   /*
+    physical parameters
+  */
+  parameter.vis = 0.1;
+  parameter.t = 1;
+
+  /*
     particle parameters
   */
-  sigma = 0.007;
+  sigma = 0.05;
   overlap = atof(argv[1]);
   h = overlap*sigma;
+  xmin = -1;
+  xmax = 1;
+  ymin = -1;
+  ymax = 1;
+  zmin = -1;
+  zmax = 1;
 
   /*
     cluster parameters
@@ -74,15 +72,18 @@ int main(int argc,char **argv)
   /*
     calculate problem size
   */
-  ni = 5346;
+  nx = (int)floor((xmax-xmin+epsf)/h)+1;
+  ny = (int)floor((ymax-ymin+epsf)/h)+1;
+  nz = (int)floor((zmax-zmin+epsf)/h)+1;
+  ni = nx*ny*nz;
   if(mpi.myrank==0) {
     printf("||---------------------------------------\n");
     printf("|| number of particles        : %d      \n",ni);
     printf("|| std of Gaussian (sigma)    : %f      \n",sigma);
     printf("|| overlap ratio (h/sigma)    : %f      \n",overlap);
     printf("|| non-overlapping subdomain  : %d sigma\n",nsigma_box);
-    printf("|| overlapping subdomain      : %d sigma\n",(int)fmin(sigma_buffer,floor(2/sigma)));
-    printf("|| entire domain              : %d sigma\n",(int)floor(2/sigma));
+    printf("|| overlapping subdomain      : %d sigma\n",(int)fmin(sigma_buffer,floor((xmax-xmin)/sigma)));
+    printf("|| entire domain              : %d sigma\n",(int)floor((xmax-xmin)/sigma));
     printf("||---------------------------------------\n");
   }
   nj = ni;
@@ -90,40 +91,44 @@ int main(int argc,char **argv)
   /*
     generate particles
   */
-  xd = new double [ni];
-  yd = new double [ni];
-  gd = new double [ni];
-  ed = new double [ni];
-  wd = new double [ni];
-  fid.open("cdata");
-  for (i=0; i<ni; i++) {
-    fid >> xd[i];
-    fid >> yd[i];
-    fid >> gd[i];
-    fid >> ed[i];
-    wd[i] = ed[i];
-  }
-  fid.close();
   ierr = VecCreate(PETSC_COMM_WORLD,&x);CHKERRQ(ierr);
   ierr = VecSetSizes(x,PETSC_DECIDE,ni);CHKERRQ(ierr);
   ierr = VecSetFromOptions(x);CHKERRQ(ierr);
   ierr = VecDuplicate(x,&y);CHKERRQ(ierr);
+  ierr = VecDuplicate(x,&z);CHKERRQ(ierr);
   ierr = VecDuplicate(x,&g);CHKERRQ(ierr);
   ierr = VecDuplicate(x,&e);CHKERRQ(ierr);
   ierr = VecDuplicate(x,&w);CHKERRQ(ierr);
   ierr = VecGetOwnershipRange(x,&ista,&iend);CHKERRQ(ierr);
   nlocal = iend-ista;
   for(i=ista; i<iend; i++) {
-    ierr = VecSetValues(x,1,&i,&xd[i],INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecSetValues(y,1,&i,&yd[i],INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecSetValues(g,1,&i,&gd[i],INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecSetValues(e,1,&i,&ed[i],INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecSetValues(w,1,&i,&wd[i],INSERT_VALUES);CHKERRQ(ierr);
+    double th, r, s2, r0 = 0.5, s0 = 0.2 ;
+
+    xd = xmin+(floor((i%(nx*ny))/ny))*h;
+    yd = ymin+(i%ny)*h;
+    zd = zmin+(floor(i/(nx*ny)))*h;
+    // ed = exp(-(xd*xd+yd*yd+zd*zd)/(4*parameter.vis*parameter.t))/(M_PI*4*parameter.vis*parameter.t);
+
+    th = atan2(yd, xd) ;
+    r = sqrt(yd*yd + xd*xd) ;
+    s2 = (r-r0)*(r-r0) + zd*zd ;
+    ed = exp(-s2/s0/s0) ;
+    ed = -ed*sin(th) ;
+    wd = ed;
+    gd = ed*h*h*h;
+    ierr = VecSetValues(x,1,&i,&xd,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(y,1,&i,&yd,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(z,1,&i,&zd,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(g,1,&i,&gd,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(e,1,&i,&ed,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValues(w,1,&i,&wd,INSERT_VALUES);CHKERRQ(ierr);
   }
   ierr = VecAssemblyBegin(x);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(x);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(y);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(y);CHKERRQ(ierr);
+  ierr = VecAssemblyBegin(z);CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(z);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(g);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(g);CHKERRQ(ierr);
   ierr = VecAssemblyBegin(e);CHKERRQ(ierr);
@@ -131,9 +136,9 @@ int main(int argc,char **argv)
   ierr = VecAssemblyBegin(w);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(w);CHKERRQ(ierr);
 
-  rbf_interpolation_2d(x,y,g,e,sigma,nsigma_box,sigma_buffer,sigma_trunc,&its);
-  rbf_vorticity_evaluation_2d(x,y,w,x,y,g,
-			      sigma,nsigma_box,sigma_buffer,sigma_trunc);
+//  vorticity_evaluation(x,y,z,w,x,y,z,g,sigma,nsigma_box,sigma_buffer,sigma_trunc);
+  rbf_interpolation_3d(x,y,z,g,e,sigma,nsigma_box,sigma_buffer,sigma_trunc,&its);
+  rbf_vorticity_evaluation_3d(x,y,z,w,x,y,z,g,sigma,nsigma_box,sigma_buffer,sigma_trunc);
 
   /*
     calculate the L2 norm error
@@ -147,6 +152,11 @@ int main(int argc,char **argv)
   t = (double)(toc-tic)/ (double)CLOCKS_PER_SEC;
   if (mpi.myrank == 0) {
     char file[13];
+    if (1.0-overlap < epsf) {
+//      sprintf(file,"%s-%s-%s.dat",argv[1],argv[2],argv[3]);
+    } else {
+//      sprintf(file,"0%s-%s-%s.dat",argv[1],argv[2],argv[3]);
+    }
     sprintf(file,"%d.dat",mpi.nprocs);
     fid0.open(file);
     fid0 << t << std::endl << its;
@@ -155,10 +165,5 @@ int main(int argc,char **argv)
     printf("time  : %g\n",t);
   }
 
-  delete[] xd;
-  delete[] yd;
-  delete[] gd;
-  delete[] ed;
-  delete[] wd;
   PetscFinalize();
 }

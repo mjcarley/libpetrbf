@@ -22,8 +22,8 @@
 
 // Code modified by Michael Carley for incorporation into a library, 2024
 
-#ifndef par_2d_h
-#define par_2d_h
+#ifndef par_3d_h
+#define par_3d_h
 
 #include <petscksp.h>
 
@@ -51,10 +51,12 @@ double sigma;
 double sigma0;
 double overlap;
 double h;
-PetscReal xmin;
-PetscReal xmax;
-PetscReal ymin;
-PetscReal ymax;
+double xmin;
+double xmax;
+double ymin;
+double ymax;
+double zmin;
+double zmax;
 double r_grid;
 Vec i;
 Vec j;
@@ -62,19 +64,23 @@ Vec ii;
 Vec jj;
 Vec xi;
 Vec yi;
+Vec zi;
 Vec gi;
 Vec wi;
 Vec xj;
 Vec yj;
+Vec zj;
 Vec gj;
 PetscScalar *il;
 PetscScalar *jl;
 PetscScalar *xil;
 PetscScalar *yil;
+PetscScalar *zil;
 PetscScalar *gil;
 PetscScalar *wil;
 PetscScalar *xjl;
 PetscScalar *yjl;
+PetscScalar *zjl;
 PetscScalar *gjl;
 };
 
@@ -83,6 +89,7 @@ int n;
 double r;
 double *x;
 double *y;
+double *z;
 double *g;
 double *ut;
 double *vt;
@@ -99,6 +106,7 @@ int sigma_trunc;
 int n;
 int nx;
 int ny;
+int nz;
 int neighbor_buffer;
 int neighbor_trunc;
 int neighbor_ghost;
@@ -123,6 +131,7 @@ int *jsta;
 int *jend;
 int *ix;
 int *iy;
+int *iz;
 int *ilocal;
 int *jlocal;
 int *ighost;
@@ -133,23 +142,29 @@ double xmin;
 double xmax;
 double ymin;
 double ymax;
+double zmin;
+double zmax;
 double box_length;
 double buffer_length;
 double trunc_length;
 double *xc;
 double *yc;
+double *zc;
 double *xib;
 double *yib;
+double *zib;
 double *gib;
 double *wib;
 double *xjt;
 double *yjt;
+double *zjt;
 double *gjt;
 };
 
 struct GRID{
 int nx;
 int ny;
+int nz;
 };
 
 struct HIERARCHICAL{
@@ -176,5 +191,4 @@ CLUSTER *c;
 
 const double epsf=1e-6;
 
-#endif /*par_2d_h*/
-
+#endif /*par_3d_h*/

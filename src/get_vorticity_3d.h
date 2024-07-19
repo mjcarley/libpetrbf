@@ -1,0 +1,31 @@
+#ifndef get_vorticity_3d_h
+#define get_vorticity_3d_h
+
+class Get_vorticity_3d
+{
+  int i,j,ic,il,ista,iend;
+  double w,dx,dy,dz;
+public:
+  void get_vorticity(PARTICLE *particle,CLUSTER *cluster)
+  {
+    for (ic=cluster->icsta; ic<cluster->icend; ic++) {
+      Get_trunc_3d trunc;
+      trunc.get_trunc(particle,cluster,ic);
+      ista = cluster->ista[ic];
+      iend = cluster->iend[ic];
+      for (i=ista; i<=iend; i++) {
+        w = 0;
+        for (j=0; j<cluster->nptruncj; j++) {
+          dx = particle->xil[i]-cluster->xjt[j];
+          dy = particle->yil[i]-cluster->yjt[j];
+          dz = particle->zil[i]-cluster->zjt[j];
+          w += cluster->gjt[j]*exp(-(dx*dx+dy*dy+dz*dz)/(2*particle->sigma*particle->sigma))/
+            (2*M_PI*particle->sigma*particle->sigma);
+        }
+        particle->wil[i] = w;
+      }
+    }
+  }
+};
+
+#endif /*get_vorticity_3d_h*/
